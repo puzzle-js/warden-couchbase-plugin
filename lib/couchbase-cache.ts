@@ -57,7 +57,7 @@ class CouchbaseCache implements CachePlugin {
           if (this.options.compression) {
             zlib.unzip(cached.value, (err, buffer) => {
               if(err || !buffer) return resolve(null);
-              resolve(buffer.toString('utf8'));
+              resolve(JSON.parse(buffer.toString('utf8')));
             });
           } else {
             resolve(cached.value)
@@ -70,7 +70,7 @@ class CouchbaseCache implements CachePlugin {
   set(key: string, value: unknown, ms?: number): Promise<void> {
     return new Promise(resolve => {
       if (this.options.compression) {
-        zlib.gzip(value as string, (err, buffer) => {
+        zlib.gzip(JSON.stringify(value), (err, buffer) => {
           this.insert(key, buffer, resolve, ms)
         });
       } else {

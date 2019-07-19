@@ -217,7 +217,7 @@ describe('[couchbase.ts]', () => {
     await couchbase.set(key, data);
 
     // Assert
-    expect(zipStub.calledWith(data, sinon.match.func)).to.eq(true);
+    expect(zipStub.calledWith(JSON.stringify(data), sinon.match.func)).to.eq(true);
     expect(insertSpy.calledWith(key, compressedData, {
       expiry: undefined
     }, sinon.match.func)).to.eq(true);
@@ -234,7 +234,7 @@ describe('[couchbase.ts]', () => {
     const bucket = createBucket();
     const data = faker.random.word();
     const decompressedData = faker.random.word();
-    const unzipStub = sandbox.stub(zlib, 'unzip').callsArgWith(1, null, decompressedData);
+    const unzipStub = sandbox.stub(zlib, 'unzip').callsArgWith(1, null, JSON.stringify(decompressedData));
     sandbox.stub(Cluster.prototype, 'openBucket').returns(bucket as any);
     const getSpy = sandbox.stub(bucket, 'get')
       .callsArgWith(1, null, {
