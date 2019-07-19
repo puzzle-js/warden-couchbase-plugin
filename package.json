@@ -3,7 +3,7 @@
   "version": "1.1.0",
   "description": "Warden Couchbase cache plugin",
   "main": "dist/couchbase-cache.js",
-  "types": "dist/index.d.ts",
+  "types": "dist/couchbase-cache.d.ts",
   "scripts": {
     "build": "./node_modules/.bin/tsc",
     "test": "jest --coverage --silent"
