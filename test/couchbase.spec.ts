@@ -2,6 +2,7 @@ import * as sinon from "sinon";
 import * as faker from "faker";
 import {expect} from "chai";
 import {Cluster} from "couchbase";
+import * as zlib from "zlib";
 import {CouchbaseCache} from "../lib/couchbase-cache";
 
 const sandbox = sinon.createSandbox();
@@ -157,7 +158,7 @@ describe('[couchbase.ts]', () => {
     const bucket = createBucket();
     const data = faker.random.word();
     sandbox.stub(Cluster.prototype, 'openBucket').returns(bucket as any);
-    const getSpy = sandbox.stub(bucket, 'insert')
+    const insertSpy = sandbox.stub(bucket, 'insert')
       .callsArg(3);
 
     // Act
@@ -165,7 +166,7 @@ describe('[couchbase.ts]', () => {
     await couchbase.set(key, data);
 
     // Assert
-    expect(getSpy.calledWith(key, data, {
+    expect(insertSpy.calledWith(key, data, {
       expiry: undefined
     }, sinon.match.func)).to.eq(true);
   });
@@ -193,6 +194,88 @@ describe('[couchbase.ts]', () => {
     expect(getSpy.calledWith(key, data, {
       expiry: Math.floor(ttl / 1000)
     }, sinon.match.func)).to.eq(true);
+  });
+
+  it('should set content with compression enabled', async () => {
+    // Arrange
+    const host = faker.random.word();
+    const bucketName = faker.random.word();
+    const username = faker.random.word();
+    const password = faker.random.word();
+    const key = faker.random.word();
+    const couchbase = new CouchbaseCache({host, bucketName, username, password, compression: true});
+    const bucket = createBucket();
+    const data = faker.random.word();
+    const compressedData = faker.random.word();
+    const zipStub = sandbox.stub(zlib, 'gzip').callsArgWith(1, null, compressedData);
+    sandbox.stub(Cluster.prototype, 'openBucket').returns(bucket as any);
+    const insertSpy = sandbox.stub(bucket, 'insert')
+      .callsArg(3);
+
+    // Act
+    await couchbase.connect();
+    await couchbase.set(key, data);
+
+    // Assert
+    expect(zipStub.calledWith(data, sinon.match.func)).to.eq(true);
+    expect(insertSpy.calledWith(key, compressedData, {
+      expiry: undefined
+    }, sinon.match.func)).to.eq(true);
+  });
+
+  it('should get content with compression enabled', async () => {
+    // Arrange
+    const host = faker.random.word();
+    const bucketName = faker.random.word();
+    const username = faker.random.word();
+    const password = faker.random.word();
+    const key = faker.random.word();
+    const couchbase = new CouchbaseCache({host, bucketName, username, password, compression: true});
+    const bucket = createBucket();
+    const data = faker.random.word();
+    const decompressedData = faker.random.word();
+    const unzipStub = sandbox.stub(zlib, 'unzip').callsArgWith(1, null, decompressedData);
+    sandbox.stub(Cluster.prototype, 'openBucket').returns(bucket as any);
+    const getSpy = sandbox.stub(bucket, 'get')
+      .callsArgWith(1, null, {
+        value: data
+      });
+
+    // Act
+    await couchbase.connect();
+    const item = await couchbase.get(key);
+
+    // Assert
+    expect(unzipStub.calledWith(data, sinon.match.func)).to.eq(true);
+    expect(getSpy.calledWith(key, sinon.match.func)).to.eq(true);
+    expect(item).to.eq(decompressedData);
+  });
+
+  it('should return null when decompression failed', async () => {
+    // Arrange
+    const host = faker.random.word();
+    const bucketName = faker.random.word();
+    const username = faker.random.word();
+    const password = faker.random.word();
+    const key = faker.random.word();
+    const couchbase = new CouchbaseCache({host, bucketName, username, password, compression: true});
+    const bucket = createBucket();
+    const data = faker.random.word();
+    const unzipStub = sandbox.stub(zlib, 'unzip').callsArgWith(1, faker.random.word());
+    sandbox.stub(Cluster.prototype, 'openBucket').returns(bucket as any);
+    const getSpy = sandbox.stub(bucket, 'get')
+      .callsArgWith(1, null, {
+        value: data
+      });
+
+    // Act
+    await couchbase.connect();
+    const item = await couchbase.get(key);
+
+    // Assert
+    expect(unzipStub.calledWith(data, sinon.match.func)).to.eq(true);
+    expect(getSpy.calledWith(key, sinon.match.func)).to.eq(true);
+    expect(item).to.eq(null);
   });
 
   it('should set operation timeout', async () => {
